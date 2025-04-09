@@ -51,7 +51,7 @@ func getArgs() (int64, string, []string) {
 	// 从配置文件中获取认证字符串
 	authstr := viper.GetString("authstr")
 	if authstr == "" {
-		authstr = "ddu9a1XR56ZExcjg" // 默认认证字符串
+		authstr = "zKv5eTFT6FY9Ybk2" // 默认认证字符串
 	}
 
 	// 将端口号转换为 int64 类型
@@ -102,27 +102,75 @@ func startHttp(port int64, authstr string, commands []string) {
 		log.Printf("Received POST request from %s: %s", r.RemoteAddr, r.URL.Path)
 		if authstr == "" {
 			log.Printf("Not supported. authstr is empty for request from %s: %s", r.RemoteAddr, r.URL.Path)
-			http.Error(w, "not supported. use ./httpd <port> <auth-string> to enable", 200)
+			// 封装错误信息到 ResponseMsg 结构体
+			resp := ResponseMsg{
+				Msg: "not supported. use ./httpd <port> <auth-string> to enable",
+			}
+			jsonBytes, err := json.Marshal(resp)
+			if err != nil {
+				log.Printf("JSON marshaling failed for request from %s: %s. Error: %v", r.RemoteAddr, r.URL.Path, err)
+				http.Error(w, "JSON marshaling failed", http.StatusInternalServerError)
+				return
+			}
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(200)
+			w.Write(jsonBytes)
 			return
 		}
 
 		if r.Body == nil {
 			log.Printf("Bad request. Body is nil for request from %s: %s", r.RemoteAddr, r.URL.Path)
-			http.Error(w, "body is nil", http.StatusBadRequest)
+			// 封装错误信息到 ResponseMsg 结构体
+			resp := ResponseMsg{
+				Msg: "body is nil",
+			}
+			jsonBytes, err := json.Marshal(resp)
+			if err != nil {
+				log.Printf("JSON marshaling failed for request from %s: %s. Error: %v", r.RemoteAddr, r.URL.Path, err)
+				http.Error(w, "JSON marshaling failed", http.StatusInternalServerError)
+				return
+			}
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusBadRequest)
+			w.Write(jsonBytes)
 			return
 		}
 
 		auth := r.Header.Get("Authorization")
 		if strings.TrimSpace(auth) == "" {
 			log.Printf("Bad request. Authorization is blank for request from %s: %s", r.RemoteAddr, r.URL.Path)
-			http.Error(w, "Authorization is blank", http.StatusBadRequest)
+			// 封装错误信息到 ResponseMsg 结构体
+			resp := ResponseMsg{
+				Msg: "Authorization is blank",
+			}
+			jsonBytes, err := json.Marshal(resp)
+			if err != nil {
+				log.Printf("JSON marshaling failed for request from %s: %s. Error: %v", r.RemoteAddr, r.URL.Path, err)
+				http.Error(w, "JSON marshaling failed", http.StatusInternalServerError)
+				return
+			}
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusBadRequest)
+			w.Write(jsonBytes)
 			return
 		}
 
 		auth = strings.TrimPrefix(auth, "Bearer ")
 		if auth != authstr {
 			log.Printf("Forbidden. Authorization invalid for request from %s: %s", r.RemoteAddr, r.URL.Path)
-			http.Error(w, "Authorization invalid", http.StatusForbidden)
+			// 封装错误信息到 ResponseMsg 结构体
+			resp := ResponseMsg{
+				Msg: "Authorization invalid",
+			}
+			jsonBytes, err := json.Marshal(resp)
+			if err != nil {
+				log.Printf("JSON marshaling failed for request from %s: %s. Error: %v", r.RemoteAddr, r.URL.Path, err)
+				http.Error(w, "JSON marshaling failed", http.StatusInternalServerError)
+				return
+			}
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusForbidden)
+			w.Write(jsonBytes)
 			return
 		}
 
@@ -141,7 +189,19 @@ func startHttp(port int64, authstr string, commands []string) {
 
 		if !allowed {
 			log.Printf("Command not allowed: %s from %s", sh, r.RemoteAddr)
-			http.Error(w, fmt.Sprintf("Command `%s` is not allowed", sh), http.StatusForbidden)
+			// 封装错误信息到 ResponseMsg 结构体
+			resp := ResponseMsg{
+				Msg: fmt.Sprintf("Command `%s` is not allowed", sh),
+			}
+			jsonBytes, err := json.Marshal(resp)
+			if err != nil {
+				log.Printf("JSON marshaling failed for request from %s: %s. Error: %v", r.RemoteAddr, r.URL.Path, err)
+				http.Error(w, "JSON marshaling failed", http.StatusInternalServerError)
+				return
+			}
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusForbidden)
+			w.Write(jsonBytes)
 			return
 		}
 
@@ -150,7 +210,21 @@ func startHttp(port int64, authstr string, commands []string) {
 		output, err := cmd.CombinedOutput()
 		if err != nil {
 			log.Printf("Execution failed for request from %s: %s. Error: %v", r.RemoteAddr, r.URL.Path, err)
-			http.Error(w, fmt.Sprintf("exec `%s` fail: %v", sh, err), 200)
+			// 封装错误信息到 ResponseMsg 结构体
+			resp := ResponseMsg{
+				Msg: fmt.Sprintf("exec `%s` fail: %v", sh, err),
+			}
+			// 修改 err 变量名以避免影子变量问题
+			jsonBytes, marshalErr := json.Marshal(resp)
+			if marshalErr != nil {
+				log.Printf("JSON marshaling failed for request from %s: %s. Error: %v", r.RemoteAddr, r.URL.Path, marshalErr)
+				http.Error(w, "JSON marshaling failed", http.StatusInternalServerError)
+				return
+			}
+
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(200)
+			w.Write(jsonBytes)
 			return
 		}
 		resp := ResponseMsg{
