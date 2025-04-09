@@ -1,0 +1,6 @@
+port: 10030
+authstr: ddu9a1XR56ZExcjg
+commands:
+  - "ls *"
+  - "pwd"
+  - "df -hT"
